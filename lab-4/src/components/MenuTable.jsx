@@ -2,7 +2,6 @@ import { filterMenu } from '../filterMenu.js'
 import MenuCategory from './MenuCategory.jsx'
 
 export default function MenuTable({ menu, filterText, inStockOnly }) {
-
   const visibleMenu = filterMenu(menu, filterText, inStockOnly)
 
   return (
