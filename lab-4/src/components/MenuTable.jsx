@@ -4,6 +4,10 @@ import MenuCategory from './MenuCategory.jsx'
 export default function MenuTable({ menu, filterText, inStockOnly }) {
   const visibleMenu = filterMenu(menu, filterText, inStockOnly)
 
+  if (visibleMenu.length === 0) {
+    return <p className="empty">Нічого не знайдено</p>
+  }
+
   return (
     <table className="menu-table">
       <thead>
