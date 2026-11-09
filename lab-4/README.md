@@ -30,7 +30,7 @@ https://denysmatsevych.github.io/web-development-2026/react/labs/lab-4/
 
 ```mermaid
 flowchart TD
-  App -->|menu| FilterableMenuTable
+  App --> FilterableMenuTable
   App --> CafeInfo
   FilterableMenuTable -->|"filterText, inStockOnly"| SearchBar
   FilterableMenuTable -->|"menu, filterText, inStockOnly"| MenuTable
