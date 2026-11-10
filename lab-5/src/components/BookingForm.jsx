@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { describeBooking } from '../describeBooking.js'
 import GuestsStepper from './GuestsStepper.jsx'
 
@@ -6,12 +6,25 @@ export default function BookingForm() {
   const [booking, setBooking] = useState(null)
   const [comment, setComment] = useState('')
   const [guests, setGuests] = useState(2)
+  const [isDirty, setIsDirty] = useState(false)
   const nameRef = useRef(null)
+
+  useEffect(() => {
+    if (!isDirty) return
+
+    function handleBeforeUnload(e) {
+      e.preventDefault()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
 
   function handleSubmit(e) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     setBooking(Object.fromEntries(formData))
+    setIsDirty(false)
   }
 
   function handleKeyDown(e) {
@@ -24,6 +37,7 @@ export default function BookingForm() {
     setBooking(null)
     setComment('')
     setGuests(2)
+    setIsDirty(false)
     nameRef.current.focus()
   }
 
@@ -33,6 +47,7 @@ export default function BookingForm() {
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}
       onReset={handleReset}
+      onInput={() => setIsDirty(true)}
     >
       <label>
         Ім'я
