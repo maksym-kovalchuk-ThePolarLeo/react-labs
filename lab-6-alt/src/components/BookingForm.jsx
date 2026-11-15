@@ -1,8 +1,8 @@
-import { startTransition, useActionState } from 'react'
-import { Controller, useForm, useWatch } from 'react-hook-form'
+import { startTransition, useActionState, useRef } from 'react'
+import { useForm, useSelector } from '@tanstack/react-form'
+import { safeParse } from 'valibot'
 import GuestsStepper from './GuestsStepper.jsx'
 import { sendBooking } from '../api.js'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { bookingSchema, maxBookingDate, today } from '../bookingSchema.js'
 
 const defaultValues = {
@@ -14,32 +14,69 @@ const defaultValues = {
   comment: '',
 }
 
+const FOCUS_ORDER = ['name', 'phone', 'date', 'time']
+
+// Повторює режим onTouched: уперше поле перевіряється при втраті фокусу,
+// а далі (після blur або першої спроби надсилання) — при кожній зміні.
+// Поле date також переперевіряє форму при зміні, щоб одразу оновити time.
+function onTouchedValidationLogic({ event, form, validators, runValidation }) {
+  if (!validators || event.async) {
+    return runValidation({ validators: [], form })
+  }
+  const fieldMeta = event.fieldName ? form.getFieldMeta(event.fieldName) : null
+  const shouldValidate =
+    event.type === 'submit' ||
+    event.type === 'blur' ||
+    (event.type === 'change' &&
+      (form.state.submissionAttempts > 0 ||
+        fieldMeta?.isBlurred ||
+        event.fieldName === 'date'))
+  return runValidation({
+    validators: shouldValidate
+      ? [{ fn: validators.onDynamic, cause: 'dynamic' }]
+      : [],
+    form,
+  })
+}
+
 export default function BookingForm() {
-  const {
-    register,
-    control,
-    handleSubmit,
-    reset,
-    setFocus,
-    getValues,
-    trigger,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(bookingSchema),
+  const fieldRefs = useRef({})
+  const [result, dispatch, isPending] = useActionState(bookTable, null)
+
+  const form = useForm({
     defaultValues,
-    mode: 'onTouched',
+    validationLogic: onTouchedValidationLogic,
+    validators: {
+      onDynamic: bookingSchema,
+    },
+    onSubmitInvalid: ({ value }) => {
+      const parsed = safeParse(bookingSchema, value)
+      if (parsed.success) return
+      const invalidFields = new Set(
+        parsed.issues.map((issue) => issue.path?.[0]?.key).filter(Boolean),
+      )
+      const firstInvalid = FOCUS_ORDER.find((name) => invalidFields.has(name))
+      if (firstInvalid) fieldRefs.current[firstInvalid]?.focus()
+    },
+    onSubmit: ({ value }) => {
+      if (isPending) return
+      const parsed = safeParse(bookingSchema, value)
+      if (!parsed.success) return
+      startTransition(() => dispatch(parsed.output))
+    },
   })
 
-  const comment = useWatch({ control, name: 'comment' })
-
-  const [result, dispatch, isPending] = useActionState(bookTable, null)
+  const submissionAttempts = useSelector(
+    form.store,
+    (state) => state.submissionAttempts,
+  )
 
   // Дія для useActionState: null — сигнал «Очистити»; інакше надсилаємо
   // бронювання, після успіху очищаємо форму й повертаємо відповідь.
   async function bookTable(previousResult, booking) {
     if (booking === null) return null
     const response = await sendBooking(booking)
-    if (response.ok) startTransition(() => reset())
+    if (response.ok) startTransition(() => form.reset())
     return response
   }
 
@@ -50,111 +87,177 @@ export default function BookingForm() {
   }
 
   function handleReset() {
-    setFocus('name') // до reset(): він прибирає посилання на поля
-    reset()
+    form.reset()
+    fieldRefs.current.name?.focus()
     startTransition(() => dispatch(null))
   }
 
-  function onValid(data) {
-    if (isPending) return
-    startTransition(() => dispatch(data))
+  function getFieldError(field) {
+    const show = field.state.meta.isBlurred || submissionAttempts > 0
+    if (!show) return undefined
+    const firstError = field.state.meta.errors[0]
+    return typeof firstError === 'string' ? firstError : firstError?.message
   }
 
   return (
     <form
       className="booking-form"
       noValidate
-      onSubmit={handleSubmit(onValid)}
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }}
       onKeyDown={handleKeyDown}
     >
-      <div className="field">
-        <label>
-          Ім'я
-          <input
-            {...register('name')}
-            autoComplete="name"
-            required
-            aria-invalid={errors.name ? 'true' : 'false'}
-            aria-describedby="name-error"
-          />
-        </label>
-        <p id="name-error" className="field-error">
-          {errors.name?.message}
-        </p>
-      </div>
-      <div className="field">
-        <label>
-          Телефон
-          <input
-            type="tel"
-            {...register('phone')}
-            autoComplete="tel"
-            placeholder="+380671234567"
-            required
-            aria-invalid={errors.phone ? 'true' : 'false'}
-            aria-describedby="phone-error"
-          />
-        </label>
-        <p id="phone-error" className="field-error">
-          {errors.phone?.message}
-        </p>
-      </div>
+      <form.Field name="name">
+        {(field) => {
+          const errorMessage = getFieldError(field)
+          return (
+            <div className="field">
+              <label>
+                Ім&apos;я
+                <input
+                  ref={(el) => {
+                    fieldRefs.current.name = el
+                  }}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  autoComplete="name"
+                  required
+                  aria-invalid={errorMessage ? 'true' : 'false'}
+                  aria-describedby="name-error"
+                />
+              </label>
+              <p id="name-error" className="field-error">
+                {errorMessage}
+              </p>
+            </div>
+          )
+        }}
+      </form.Field>
+      <form.Field name="phone">
+        {(field) => {
+          const errorMessage = getFieldError(field)
+          return (
+            <div className="field">
+              <label>
+                Телефон
+                <input
+                  ref={(el) => {
+                    fieldRefs.current.phone = el
+                  }}
+                  type="tel"
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  autoComplete="tel"
+                  placeholder="+380671234567"
+                  required
+                  aria-invalid={errorMessage ? 'true' : 'false'}
+                  aria-describedby="phone-error"
+                />
+              </label>
+              <p id="phone-error" className="field-error">
+                {errorMessage}
+              </p>
+            </div>
+          )
+        }}
+      </form.Field>
       <div className="row">
-        <div className="field">
-          <label>
-            Дата
-            <input
-              type="date"
-              min={today()}
-              max={maxBookingDate()}
-              {...register('date', {
-                onChange: () => {
-                  if (getValues('time')) trigger('time')
-                },
-              })}
-              required
-              aria-invalid={errors.date ? 'true' : 'false'}
-              aria-describedby="date-error"
-            />
-          </label>
-          <p id="date-error" className="field-error">
-            {errors.date?.message}
-          </p>
-        </div>
-        <div className="field">
-          <label>
-            Час
-            <input
-              type="time"
-              {...register('time')}
-              required
-              aria-invalid={errors.time ? 'true' : 'false'}
-              aria-describedby="time-error"
-            />
-          </label>
-          <p id="time-error" className="field-error">
-            {errors.time?.message}
-          </p>
-        </div>
+        <form.Field name="date">
+          {(field) => {
+            const errorMessage = getFieldError(field)
+            return (
+              <div className="field">
+                <label>
+                  Дата
+                  <input
+                    ref={(el) => {
+                      fieldRefs.current.date = el
+                    }}
+                    type="date"
+                    min={today()}
+                    max={maxBookingDate()}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    required
+                    aria-invalid={errorMessage ? 'true' : 'false'}
+                    aria-describedby="date-error"
+                  />
+                </label>
+                <p id="date-error" className="field-error">
+                  {errorMessage}
+                </p>
+              </div>
+            )
+          }}
+        </form.Field>
+        <form.Field name="time">
+          {(field) => {
+            const errorMessage = getFieldError(field)
+            return (
+              <div className="field">
+                <label>
+                  Час
+                  <input
+                    ref={(el) => {
+                      fieldRefs.current.time = el
+                    }}
+                    type="time"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    required
+                    aria-invalid={errorMessage ? 'true' : 'false'}
+                    aria-describedby="time-error"
+                  />
+                </label>
+                <p id="time-error" className="field-error">
+                  {errorMessage}
+                </p>
+              </div>
+            )
+          }}
+        </form.Field>
       </div>
-      <Controller
-        name="guests"
-        control={control}
-        render={({ field }) => (
-          <GuestsStepper value={field.value} onChange={field.onChange} />
+      <form.Field name="guests">
+        {(field) => (
+          <GuestsStepper
+            value={field.state.value}
+            onChange={field.handleChange}
+          />
         )}
-      />
-      <label>
-        Коментар
-        <textarea
-          {...register('comment')}
-          maxLength={200}
-          aria-describedby="comment-counter"
-        />
-      </label>
-      <p id="comment-counter" className="counter">
-        {comment.length} / 200
-      </p>
+      </form.Field>
+      <form.Field name="comment">
+        {(field) => (
+          <label>
+            Коментар
+            <textarea
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              maxLength={200}
+              aria-describedby="comment-counter"
+            />
+          </label>
+        )}
+      </form.Field>
+      <form.Subscribe selector={(state) => state.values.comment}>
+        {(comment) => (
+          <p id="comment-counter" className="counter">
+            {comment.length} / 200
+          </p>
+        )}
+      </form.Subscribe>
       <div className="actions">
         <button type="submit" aria-disabled={isPending}>
           {isPending ? 'Надсилаємо…' : 'Забронювати'}

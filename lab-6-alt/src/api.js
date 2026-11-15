@@ -1,3 +1,4 @@
+import { safeParse } from 'valibot'
 import { bookingSchema } from './bookingSchema.js'
 import { describeBooking } from './describeBooking.js'
 
@@ -8,17 +9,17 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 export async function sendBooking(booking) {
   console.info('Сервер отримав бронювання:', booking)
   await wait(1000)
-  const result = bookingSchema.safeParse(booking)
+  const result = safeParse(bookingSchema, booking)
   if (!result.success) {
     return { ok: false, message: 'Сервер не прийняв дані: перевірте форму.' }
   }
-  if (result.data.time === '19:00') {
+  if (result.output.time === '19:00') {
     return {
       ok: false,
       message: 'На 19:00 вільних столиків немає. Оберіть інший час.',
     }
   }
-  return { ok: true, message: describeBooking(result.data) }
+  return { ok: true, message: describeBooking(result.output) }
 }
 
 // Імітує підписку на новини (§4.7): адреси на @example.com уже підписані.
