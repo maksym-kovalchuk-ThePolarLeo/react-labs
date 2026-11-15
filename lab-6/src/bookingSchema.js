@@ -2,12 +2,21 @@ import { z } from 'zod'
 
 const pad = (n) => String(n).padStart(2, '0')
 
-// Сьогоднішня дата й поточний час у місцевому часовому поясі, у форматах
-// <input type="date"> («2026-11-14») і <input type="time"> («18:30»).
-// Такі рядки можна порівнювати як рядки.
-export function today() {
-  const d = new Date()
+function formatDate(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+// Сьогоднішня дата, максимальна дата бронювання (+1 рік) і поточний час
+// у місцевому часовому поясі, у форматах <input type="date"> («2026-11-14»)
+// і <input type="time"> («18:30»). Такі рядки можна порівнювати як рядки.
+export function today() {
+  return formatDate(new Date())
+}
+
+export function maxBookingDate() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  return formatDate(d)
 }
 
 export function nowTime() {
@@ -26,7 +35,16 @@ export const bookingSchema = z
     date: z
       .string()
       .min(1, 'Оберіть дату')
-      .refine((date) => date >= today(), 'Ця дата вже минула'),
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Вкажіть дату у форматі РРРР-ММ-ДД')
+      .refine((date) => {
+        const parsed = new Date(`${date}T00:00`)
+        return !Number.isNaN(parsed.getTime()) && formatDate(parsed) === date
+      }, 'Вкажіть коректну календарну дату')
+      .refine((date) => date >= today(), 'Ця дата вже минула')
+      .refine(
+        (date) => date <= maxBookingDate(),
+        'Столик можна забронювати щонайбільше на рік уперед',
+      ),
     time: z
       .string()
       .min(1, 'Оберіть час')
