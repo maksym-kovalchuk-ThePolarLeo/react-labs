@@ -28,6 +28,7 @@ body {
 
 .app {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -53,6 +54,7 @@ body {
 .booking-form,
 .subscribe-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   padding: 24px 20px;
   border: 1px solid #e5e7eb;
@@ -64,6 +66,7 @@ body {
 .booking-form label,
 .subscribe-form label {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   font-weight: 600;
 }
@@ -91,6 +94,8 @@ body {
 
 .field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 6px;
   align-content: start;
 }
@@ -99,6 +104,7 @@ body {
   margin: 0;
   color: #b91c1c;
   font-size: 0.875rem;
+  overflow-wrap: anywhere;
 }
 
 .field-error:empty {
@@ -250,6 +256,7 @@ body {
   border-radius: 10px;
   background: #ecfdf5;
   color: #065f46;
+  overflow-wrap: anywhere;
 }
 
 .status.error {
