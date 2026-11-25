@@ -16,7 +16,7 @@
 | ---------------------- | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | За типом файлів (§4.3) | 4   | lab-10/src/components, lab-10/src/hooks, lab-10/src/store, lab-10/src/pages                                                                                      |
 | Гібридна (§4.7)        | 5   | lab-10/src/routes/cart, lab-10/src/app, lab-10/src/shared/features/cart/store, lab-10/src/shared/features/cart/components, lab-10/src/shared/features/cart/hooks |
-| Пакет (§4.10)          |     |                                                                                                                                                                  |
+| Пакет (§4.10)          | 6    | packages/cart/data, packages/cart/state, packages/cart/ui, lab-10/src/app, lab-10/src/routes/cart, lab-10/src/shared/features/cart/components                    |
 
 ## Вибір структури
 

@@ -1,6 +1,5 @@
-import CartLine from '../../shared/features/cart/components/CartLine.jsx'
 import Link from '../../shared/components/Link.jsx'
-import { useCart } from '../../shared/features/cart/hooks/useCart.js'
+import { useCart, CartLine } from '@coffee/cart'
 import { paths } from '../../shared/utils/paths.js'
 
 export default function CartPage() {

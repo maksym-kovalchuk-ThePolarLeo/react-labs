@@ -1,4 +1,4 @@
-import { useCart } from '../shared/features/cart/hooks/useCart.js'
+import { useCart } from '@coffee/cart'
 import { paths } from '../shared/utils/paths.js'
 import Link from '../shared/components/Link.jsx'
 
